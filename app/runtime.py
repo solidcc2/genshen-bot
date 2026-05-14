@@ -7,6 +7,8 @@ from typing import Any
 
 from app.config import AppConfig
 from app.errors import ServiceRegistrationError
+from app.plugin import PluginRegistry
+from app.router import Router
 
 
 class ServiceRegistry:
@@ -51,3 +53,5 @@ class AppContext:
     logger: logging.Logger
     services: ServiceRegistry = field(default_factory=ServiceRegistry)
     runtime: RuntimeState = field(default_factory=RuntimeState)
+    plugins: PluginRegistry = field(default_factory=PluginRegistry)
+    router: Router = field(default_factory=Router)

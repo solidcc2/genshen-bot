@@ -9,10 +9,14 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
+from app.adapters import CLIAdapter
 from app.config import ConfigLoader
 from app.errors import ApplicationStateError, BootstrapError
 from app.http import HealthService
 from app.logging import configure_logging
+from app.plugins.echo import EchoPlugin
+from app.plugins.help import HelpPlugin
+from app.plugins.ping import PingPlugin
 from app.runtime import AppContext
 
 
@@ -46,14 +50,30 @@ def build_application(
     config = ConfigLoader.load(config_path=config_path, environ=environ)
     logger = configure_logging(config.log_level)
     context = AppContext(config=config, logger=logger)
+
+    _register_builtin_plugins(context)
+
     health_service = HealthService(context, runner_factory=health_runner_factory)
     context.services.register("health_service", health_service)
     return Application(context=context, health_service=health_service)
 
 
+def _register_builtin_plugins(context: AppContext) -> None:
+    echo = EchoPlugin()
+    ping = PingPlugin()
+    help_ = HelpPlugin(context.plugins)
+
+    for plugin in (echo, ping, help_):
+        context.plugins.register(plugin)
+        context.router.register(plugin)
+
+
 async def async_main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Start the QQ AI bot runtime skeleton.")
     parser.add_argument("--config", default=None, help="Path to JSON config file.")
+    parser.add_argument(
+        "--cli", action="store_true", help="Start CLI adapter for interactive input."
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -67,6 +87,18 @@ async def async_main(argv: list[str] | None = None) -> int:
         return 1
 
     stop_event = asyncio.Event()
+
+    if args.cli:
+        cli = CLIAdapter(application.context.router)
+        cli_task = asyncio.create_task(cli.run())
+
+        def _on_cli_done(task: asyncio.Task[None]) -> None:
+            exc = task.exception()
+            if exc:
+                print(f"CLI adapter error: {exc}", file=sys.stderr)
+            stop_event.set()
+
+        cli_task.add_done_callback(_on_cli_done)
 
     def _handle_signal(_signum: int, _frame: object) -> None:
         stop_event.set()

@@ -16,3 +16,7 @@ class ApplicationStateError(BootstrapError):
 
 class HealthServiceError(BootstrapError):
     """Raised when the health HTTP service cannot be started."""
+
+
+class PluginError(BootstrapError):
+    """Raised when a plugin encounters an error during match or handle."""
