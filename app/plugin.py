@@ -28,7 +28,6 @@ class PluginHelp:
 class PluginContext:
     event: NormalizedEvent
     sender: MessageSender
-    config: dict[str, Any] = field(default_factory=dict)
     logger: logging.Logger = field(
         default_factory=lambda: logging.getLogger("qq_ai_bot.plugin")
     )
@@ -44,7 +43,7 @@ class BotPlugin(ABC):
         prefix = "/" + self.command
         return text == prefix or text.startswith(prefix + " ")
 
-    def _extract_args(self, text: str) -> str:
+    def extract_args(self, text: str) -> str:
         prefix = "/" + self.command
         text = text.strip()
         if text == prefix:

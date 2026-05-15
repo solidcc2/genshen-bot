@@ -44,8 +44,8 @@ class TestQRLogin:
             )
         )
 
-        with patch("app.providers.hoyolab.qrcode.make") as mock_make, \
-             patch("app.providers.hoyolab.io.BytesIO") as mock_bytesio:
+        with patch("app.providers.hoyolab.provider.qrcode.make") as mock_make, \
+             patch("app.providers.hoyolab.provider.io.BytesIO") as mock_bytesio:
             mock_img = MagicMock()
             mock_img.save.return_value = None
             mock_make.return_value = mock_img

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 
 from app.config import HoYoLABConfig
@@ -150,7 +148,7 @@ class StatsPlugin(BotPlugin):
         self._provider = provider
 
     async def handle(self, ctx: PluginContext) -> PluginResult:
-        uid = self._extract_args(ctx.event.text) or None
+        uid = self.extract_args(ctx.event.text) or None
 
         try:
             result = await self._provider.get_battle_chronicle(ctx.event.user_id, uid=uid)

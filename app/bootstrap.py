@@ -61,7 +61,7 @@ def build_application(
     context.router = Router(context.plugins)
 
     _init_storage(context)
-    _register_builtin_plugins(context)
+    _register_core_plugins(context)
 
     health_service = HealthService(context, runner_factory=health_runner_factory)
     context.services.register("health_service", health_service)
@@ -75,7 +75,7 @@ def _init_storage(context: AppContext) -> None:
     context.rate_limiter = RateLimiter(storage)
 
 
-def _register_builtin_plugins(context: AppContext) -> None:
+def _register_core_plugins(context: AppContext) -> None:
     echo = EchoPlugin()
     ping = PingPlugin()
     help_ = HelpPlugin(context.plugins)

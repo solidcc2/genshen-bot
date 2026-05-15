@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from app.plugin import BotPlugin, PluginContext, PluginHelp, PluginResult, PluginRegistry
 
 
