@@ -33,6 +33,15 @@ class HoYoLABConfig:
 
 
 @dataclass(frozen=True)
+class OneBotConfig:
+    enabled: bool = False
+    webhook_host: str = "0.0.0.0"
+    webhook_port: int = 18080
+    webhook_path: str = "/onebot/v11/"
+    api_base: str = "http://127.0.0.1:3000"
+
+
+@dataclass(frozen=True)
 class AppConfig:
     app_name: str
     environment: str
@@ -40,6 +49,7 @@ class AppConfig:
     http: HTTPConfig
     storage: StorageConfig
     hoyolab: HoYoLABConfig
+    onebot: OneBotConfig
     providers: dict[str, Any]
 
 
@@ -84,6 +94,13 @@ class ConfigLoader:
                     "qr_timeout": 120.0,
                     "region": "cn",
                 },
+            },
+            "onebot": {
+                "enabled": False,
+                "webhook_host": "0.0.0.0",
+                "webhook_port": 18080,
+                "webhook_path": "/onebot/v11/",
+                "api_base": "http://127.0.0.1:3000",
             },
         }
 
@@ -150,6 +167,21 @@ class ConfigLoader:
                     f"APP_HTTP_SHUTDOWN_TIMEOUT must be a number: {timeout_value}"
                 ) from exc
 
+        if "APP_ONEBOT_ENABLED" in environ:
+            overrides.setdefault("onebot", {})["enabled"] = environ["APP_ONEBOT_ENABLED"].lower() == "true"
+        if "APP_ONEBOT_WEBHOOK_HOST" in environ:
+            overrides.setdefault("onebot", {})["webhook_host"] = environ["APP_ONEBOT_WEBHOOK_HOST"]
+        if "APP_ONEBOT_WEBHOOK_PORT" in environ:
+            port_value = environ["APP_ONEBOT_WEBHOOK_PORT"]
+            try:
+                overrides.setdefault("onebot", {})["webhook_port"] = int(port_value)
+            except ValueError as exc:
+                raise ConfigError(f"APP_ONEBOT_WEBHOOK_PORT must be an integer: {port_value}") from exc
+        if "APP_ONEBOT_WEBHOOK_PATH" in environ:
+            overrides.setdefault("onebot", {})["webhook_path"] = environ["APP_ONEBOT_WEBHOOK_PATH"]
+        if "APP_ONEBOT_API_BASE" in environ:
+            overrides.setdefault("onebot", {})["api_base"] = environ["APP_ONEBOT_API_BASE"]
+
         return overrides
 
     @classmethod
@@ -209,6 +241,10 @@ class ConfigLoader:
         if not isinstance(hoyolab_raw, dict):
             raise ConfigError("providers.hoyolab must be an object")
 
+        onebot_raw = raw.get("onebot", {})
+        if not isinstance(onebot_raw, dict):
+            raise ConfigError("onebot must be an object")
+
         return AppConfig(
             app_name=app_name.strip(),
             environment=environment.strip(),
@@ -226,6 +262,13 @@ class ConfigLoader:
             hoyolab=HoYoLABConfig(
                 qr_timeout=hoyolab_raw.get("qr_timeout", 120.0),
                 region=hoyolab_raw.get("region", "cn"),
+            ),
+            onebot=OneBotConfig(
+                enabled=bool(onebot_raw.get("enabled", False)),
+                webhook_host=str(onebot_raw.get("webhook_host", "0.0.0.0")),
+                webhook_port=int(onebot_raw.get("webhook_port", 18080)),
+                webhook_path=str(onebot_raw.get("webhook_path", "/onebot/v11/")),
+                api_base=str(onebot_raw.get("api_base", "http://127.0.0.1:3000")),
             ),
             providers=providers,
         )

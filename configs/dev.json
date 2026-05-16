@@ -17,5 +17,12 @@
       "qr_timeout": 120.0,
       "region": "cn"
     }
+  },
+  "onebot": {
+    "enabled": true,
+    "webhook_host": "0.0.0.0",
+    "webhook_port": 18080,
+    "webhook_path": "/onebot/v11/",
+    "api_base": "http://127.0.0.1:3000"
   }
 }

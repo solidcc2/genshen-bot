@@ -9,24 +9,26 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 import uvicorn
 
-from app.config import AppConfig
 from app.errors import HealthServiceError
 from app.runtime import AppContext
 
 
 class UvicornServerRunner:
-    def __init__(self, app: FastAPI, config: AppConfig) -> None:
+    def __init__(self, app: FastAPI, host: str, port: int, log_level: str = "info", shutdown_timeout: float = 5.0) -> None:
         self._app = app
-        self._config = config
+        self._host = host
+        self._port = port
+        self._log_level = log_level
+        self._shutdown_timeout = shutdown_timeout
         self._server: uvicorn.Server | None = None
         self._task: asyncio.Task[None] | None = None
 
     async def start(self) -> tuple[str, int]:
         uvicorn_config = uvicorn.Config(
             app=self._app,
-            host=self._config.http.host,
-            port=self._config.http.port,
-            log_level=self._config.log_level.lower(),
+            host=self._host,
+            port=self._port,
+            log_level=self._log_level,
             access_log=False,
             lifespan="off",
         )
@@ -52,7 +54,7 @@ class UvicornServerRunner:
         if self._task is not None:
             await asyncio.wait_for(
                 self._await_server_task(),
-                timeout=self._config.http.shutdown_timeout,
+                timeout=self._shutdown_timeout,
             )
         self._task = None
         self._server = None
@@ -80,13 +82,20 @@ class HealthService:
     def __init__(
         self,
         context: AppContext,
-        runner_factory: Callable[[FastAPI, AppConfig], Any] | None = None,
+        runner_factory: Callable[..., Any] | None = None,
     ) -> None:
         self._context = context
         self._logger = logging.getLogger("qq_ai_bot.health")
         self._app = create_health_app(context)
         factory = runner_factory or UvicornServerRunner
-        self._runner = factory(self._app, self._context.config)
+        http_config = context.config.http
+        self._runner = factory(
+            self._app,
+            http_config.host,
+            http_config.port,
+            context.config.log_level.lower(),
+            http_config.shutdown_timeout,
+        )
 
     @property
     def asgi_app(self) -> FastAPI:

@@ -23,9 +23,18 @@ class CLIMessageSender:
     async def send_reply(self, event: NormalizedEvent, text: str) -> str:
         return await self.send_text(self.reply_target, text)
 
+    async def send_image(self, target: ReplyTarget, image_data: bytes) -> str:
+        print(f"[二维码已生成，{len(image_data)} 字节]", file=sys.stdout)
+        return await self.send_text(target, f"[二维码 {len(image_data)} 字节]")
+
+    async def send_reply_image(self, event: NormalizedEvent, image_data: bytes) -> str:
+        return await self.send_image(self.reply_target, image_data)
+
+    _UNKNOWN_CMD = "未知命令。输入 /help 查看可用命令。"
+
     def display_result(self, result: PluginResult) -> None:
-        if result.text:
-            print(result.text, file=sys.stdout)
+        text = result.text if result.text is not None else self._UNKNOWN_CMD
+        print(text, file=sys.stdout)
 
 
 class CLIAdapter:

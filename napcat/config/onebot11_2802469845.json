@@ -1,0 +1,42 @@
+{
+  "network": {
+    "httpServers": [
+      {
+        "name": "api",
+        "enable": true,
+        "port": 3000,
+        "host": "0.0.0.0",
+        "enableCors": true,
+        "enableWebsocket": false,
+        "messagePostFormat": "array",
+        "token": "",
+        "debug": false
+      }
+    ],
+    "httpSseServers": [],
+    "httpClients": [
+      {
+        "name": "webhook",
+        "enable": true,
+        "url": "http://host.docker.internal:18080/onebot/v11/",
+        "reportSelfMessage": false,
+        "messagePostFormat": "string",
+        "token": "",
+        "debug": false
+      }
+    ],
+    "websocketServers": [],
+    "websocketClients": [],
+    "plugins": []
+  },
+  "musicSignUrl": "",
+  "enableLocalFile2Url": false,
+  "parseMultMsg": false,
+  "imageDownloadProxy": "",
+  "timeout": {
+    "baseTimeout": 10000,
+    "uploadSpeedKBps": 256,
+    "downloadSpeedKBps": 256,
+    "maxTimeout": 1800000
+  }
+}

@@ -8,15 +8,16 @@ from app.http import build_health_payload
 
 
 class FakeServerRunner:
-    def __init__(self, app, config):
+    def __init__(self, app, host, port, log_level="info", shutdown_timeout=5.0):
         self.app = app
-        self.config = config
+        self.host = host
+        self.port = port
         self.started = False
         self.stopped = False
 
     async def start(self):
         self.started = True
-        return self.config.http.host, 18080
+        return self.host, 18080
 
     async def stop(self):
         self.stopped = True

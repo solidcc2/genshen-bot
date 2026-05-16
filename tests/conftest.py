@@ -27,3 +27,9 @@ class FakeSender:
 
     async def send_reply(self, event, text: str) -> str:
         return "fake_id"
+
+    async def send_image(self, target, image_data: bytes) -> str:
+        return "fake_image_id"
+
+    async def send_reply_image(self, event, image_data: bytes) -> str:
+        return "fake_image_id"

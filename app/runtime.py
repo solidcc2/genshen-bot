@@ -58,8 +58,19 @@ class AppContext:
     services: ServiceRegistry = field(default_factory=ServiceRegistry)
     runtime: RuntimeState = field(default_factory=RuntimeState)
     plugins: PluginRegistry = field(default_factory=PluginRegistry)
-    router: Router | None = None
     storage: StorageProvider | None = None
     session_manager: SessionManager | None = None
     rate_limiter: RateLimiter | None = None
     dedup: MessageDedupStore | None = None
+
+    # router is set after _init_storage in bootstrap, use property access
+    _router: Router | None = field(default=None, repr=False)
+
+    @property
+    def router(self) -> Router:
+        assert self._router is not None, "router not initialized"
+        return self._router
+
+    @router.setter
+    def router(self, value: Router) -> None:
+        object.__setattr__(self, "_router", value)

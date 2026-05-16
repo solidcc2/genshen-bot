@@ -45,3 +45,12 @@ class MessageSender(Protocol):
     async def send_reply(
         self, event: NormalizedEvent, text: str
     ) -> str: ...
+
+    async def send_image(self, target: ReplyTarget, image_data: bytes) -> str:
+        """Send an image. Default fallback sends byte count as text."""
+        return await self.send_text(target, f"[图片 {len(image_data)} 字节]")
+
+    async def send_reply_image(self, event: NormalizedEvent, image_data: bytes) -> str:
+        """Send an image as reply."""
+        target = ReplyTarget(scene=event.scene, chat_id=event.chat_id, user_id=event.user_id)
+        return await self.send_image(target, image_data)

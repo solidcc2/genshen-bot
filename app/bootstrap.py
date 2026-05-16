@@ -17,6 +17,7 @@ from app.http import HealthService
 from app.logging import configure_logging
 from app.plugins.echo import EchoPlugin
 from app.plugins.help import HelpPlugin
+from app.plugins.null import NullPlugin
 from app.plugins.ping import PingPlugin
 from app.rate_limit import RateLimiter
 from app.router import Router
@@ -35,12 +36,19 @@ class Application:
             raise ApplicationStateError("Application is already running")
 
         host, port = await self._health_service.start()
+
+        if self.context.services.has("onebot_adapter"):
+            await self.context.services.get("onebot_adapter").start()
+
         self.context.runtime.mark_started(host=host, port=port)
         self.context.logger.info("application started")
 
     async def stop(self) -> None:
         if self.context.runtime.status not in {"running", "created"}:
             raise ApplicationStateError("Application is not in a stoppable state")
+
+        if self.context.services.has("onebot_adapter"):
+            await self.context.services.get("onebot_adapter").stop()
 
         await self._health_service.stop()
 
@@ -54,7 +62,7 @@ class Application:
 def build_application(
     config_path: str | Path | None = None,
     environ: dict[str, str] | None = None,
-    health_runner_factory: Callable[[FastAPI, Any], Any] | None = None,
+    health_runner_factory: Callable[..., Any] | None = None,
 ) -> Application:
     config = ConfigLoader.load(config_path=config_path, environ=environ)
     logger = configure_logging(config.log_level)
@@ -66,8 +74,18 @@ def build_application(
     context.router = Router(context.plugins, dedup=context.dedup)
     _register_core_plugins(context)
 
-    # L5: router is guaranteed non-null from this point
-    assert context.router is not None
+    # OneBot adapter (runs if enabled in config)
+    if config.onebot.enabled:
+        from app.adapters.onebot import OneBotAdapter
+
+        onebot = OneBotAdapter(
+            router=context.router,
+            webhook_host=config.onebot.webhook_host,
+            webhook_port=config.onebot.webhook_port,
+            webhook_path=config.onebot.webhook_path,
+            api_base=config.onebot.api_base,
+        )
+        context.services.register("onebot_adapter", onebot)
 
     health_service = HealthService(context, runner_factory=health_runner_factory)
     context.services.register("health_service", health_service)
@@ -91,6 +109,9 @@ def _register_core_plugins(context: AppContext) -> None:
         context.router.register(plugin)
 
     _register_genshin_plugins(context)
+
+    # NullPlugin must be registered last — its match() always returns True
+    context.router.register(NullPlugin())
 
 
 def _register_genshin_plugins(context: AppContext) -> None:

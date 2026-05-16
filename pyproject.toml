@@ -11,6 +11,7 @@ dependencies = [
   "aiosqlite",
   "fastapi",
   "genshin",
+  "httpx",
   "qrcode[pil]",
   "uvicorn",
 ]
@@ -18,7 +19,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest",
-  "httpx",
 ]
 
 [tool.setuptools.packages.find]

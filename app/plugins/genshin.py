@@ -24,13 +24,11 @@ class HoyobindPlugin(BotPlugin):
 
         session = await self._provider.start_qr_login()
 
-        lines = [
-            "请使用手机 HoYoLAB 扫码登录",
+        await ctx.sender.send_reply_image(ctx.event, session.qr_image)
+        await ctx.sender.send_reply(
+            ctx.event,
             f"正在等待扫码...（超时 {int(self._provider.qr_timeout)} 秒）",
-        ]
-        if session.qr_path:
-            lines.append(f"二维码已保存至: {session.qr_path}")
-        await ctx.sender.send_reply(ctx.event, "\n".join(lines))
+        )
 
         result = await self._provider.poll_qr_login(
             session.ticket, session.device_id, timeout=self._provider.qr_timeout
