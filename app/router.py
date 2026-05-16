@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+from app.dedup import MessageDedupStore
 from app.event_model import MessageSender, NormalizedEvent
 from app.plugin import BotPlugin, PluginContext, PluginResult, PluginRegistry
 
 
 class Router:
-    def __init__(self, registry: PluginRegistry) -> None:
+    def __init__(
+        self,
+        registry: PluginRegistry,
+        dedup: MessageDedupStore | None = None,
+    ) -> None:
         self._registry = registry
+        self._dedup = dedup
 
     def register(self, plugin: BotPlugin) -> None:
         self._registry.register(plugin)
@@ -16,6 +22,11 @@ class Router:
         event: NormalizedEvent,
         sender: MessageSender,
     ) -> PluginResult:
+        if self._dedup:
+            if await self._dedup.is_duplicate(event.message_id):
+                return PluginResult()
+            await self._dedup.mark_seen(event.message_id)
+
         for plugin in self._registry.get_all():
             if plugin.match(event):
                 ctx = PluginContext(event=event, sender=sender)

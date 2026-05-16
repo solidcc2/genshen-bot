@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "QQ AI bot prototype runtime skeleton"
 requires-python = ">=3.10"
 dependencies = [
+  "aiosqlite",
   "fastapi",
   "genshin",
   "qrcode[pil]",
@@ -19,6 +20,9 @@ dev = [
   "pytest",
   "httpx",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

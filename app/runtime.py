@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import AppConfig
+from app.dedup import MessageDedupStore
 from app.errors import ServiceRegistrationError
 from app.plugin import PluginRegistry
 from app.rate_limit import RateLimiter
@@ -61,3 +62,4 @@ class AppContext:
     storage: StorageProvider | None = None
     session_manager: SessionManager | None = None
     rate_limiter: RateLimiter | None = None
+    dedup: MessageDedupStore | None = None

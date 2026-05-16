@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import FastAPI
 from app.adapters import CLIAdapter
 from app.config import ConfigLoader
+from app.dedup import MessageDedupStore
 from app.errors import ApplicationStateError, BootstrapError
 from app.http import HealthService
 from app.logging import configure_logging
@@ -58,10 +59,15 @@ def build_application(
     config = ConfigLoader.load(config_path=config_path, environ=environ)
     logger = configure_logging(config.log_level)
     context = AppContext(config=config, logger=logger)
-    context.router = Router(context.plugins)
 
+    # Storage first — Router depends on dedup from storage
     _init_storage(context)
+
+    context.router = Router(context.plugins, dedup=context.dedup)
     _register_core_plugins(context)
+
+    # L5: router is guaranteed non-null from this point
+    assert context.router is not None
 
     health_service = HealthService(context, runner_factory=health_runner_factory)
     context.services.register("health_service", health_service)
@@ -73,6 +79,7 @@ def _init_storage(context: AppContext) -> None:
     context.storage = storage
     context.session_manager = SessionManager(storage)
     context.rate_limiter = RateLimiter(storage)
+    context.dedup = MessageDedupStore(storage)
 
 
 def _register_core_plugins(context: AppContext) -> None:
