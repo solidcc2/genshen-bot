@@ -4,7 +4,12 @@
 
 ## 常用命令
 
+> **重要：** 所有 Python 命令都必须在虚拟环境中运行。先执行 `source .venv/bin/activate`，或使用 `.venv/bin/` 前缀（如 `.venv/bin/pytest`）。
+
 ```bash
+# 激活虚拟环境
+source .venv/bin/activate
+
 # 安装依赖（dev 包含 pytest、httpx）
 pip install -e ".[dev]"
 
