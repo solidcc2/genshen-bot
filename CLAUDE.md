@@ -20,8 +20,8 @@ python -m app --config configs/dev.json
 # 启动应用 + CLI 交互模式
 python -m app --config configs/dev.json --cli
 
-# 非交互式冒烟测试
-echo -e "/help\nping\n/echo hello\n/quit" | python -m app --config configs/dev.json --cli
+# 非交互式冒烟测试（干净退出、无异常告警）
+printf "/help\n/echo hello\n/notes\n/sign\n/stats\n/hoyounbind\n/quit\n" | python -m app --config configs/dev.json --cli 2>&1
 
 # 健康检查（需先启动应用）
 curl http://127.0.0.1:8000/healthz

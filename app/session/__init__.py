@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 from app.storage import StorageProvider
 
@@ -40,19 +43,24 @@ class SessionManager:
     async def get_or_create(self, chat_id: str) -> Session:
         data = await self._storage.get(_NS_SESSION, chat_id)
         if data is not None:
-            return Session(
-                chat_id=chat_id,
-                messages=[
+            try:
+                messages = [
                     MessageRecord(
-                        role=m["role"],
-                        text=m["text"],
-                        timestamp=_parse_timestamp(m["timestamp"]),
+                        role=m.get("role", ""),
+                        text=m.get("text", ""),
+                        timestamp=_parse_timestamp(m.get("timestamp", "1970-01-01T00:00:00+00:00")),
                     )
                     for m in data.get("messages", [])
-                ],
+                ]
+            except Exception as exc:
+                _logger.warning("corrupt session messages for %s: %s", chat_id, exc)
+                messages = []
+            return Session(
+                chat_id=chat_id,
+                messages=messages,
                 state=data.get("state", {}),
-                created_at=_parse_timestamp(data["created_at"]),
-                updated_at=_parse_timestamp(data["updated_at"]),
+                created_at=_parse_timestamp(data.get("created_at", "1970-01-01T00:00:00+00:00")),
+                updated_at=_parse_timestamp(data.get("updated_at", "1970-01-01T00:00:00+00:00")),
             )
         return Session(chat_id=chat_id)
 

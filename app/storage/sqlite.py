@@ -58,7 +58,11 @@ class SQLiteStorage(StorageProvider):
             await self.delete(namespace, key)
             return None
 
-        return json.loads(row["value"])
+        try:
+            return json.loads(row["value"])
+        except (json.JSONDecodeError, TypeError) as exc:
+            _logger.warning("corrupt value in %s:%s: %s", namespace, key, exc)
+            return None
 
     async def set(
         self, namespace: str, key: str, value: Any, ttl: float | None = None

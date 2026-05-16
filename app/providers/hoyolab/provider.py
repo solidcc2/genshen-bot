@@ -65,24 +65,26 @@ class HoYoLABProvider:
     async def start_qr_login(self) -> QRLoginSession:
         device_id = _generate_device_id()
         client = genshin.Client(region=self._region, device_id=device_id)
-        try:
-            creation = await client._create_qrcode()
-        finally:
-            await client.close()
+        creation = await client._create_qrcode()
 
-        img = qrcode.make(creation.url, image_factory=PilImage)
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        qr_bytes = buf.getvalue()
+        def _generate_qr(url: str) -> tuple[bytes, str]:
+            img = qrcode.make(url, image_factory=PilImage)
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            qr_bytes = buf.getvalue()
 
-        qr_path = ""
-        try:
-            qr_file = Path("data/qrcodes") / f"{creation.ticket}.png"
-            qr_file.parent.mkdir(parents=True, exist_ok=True)
-            qr_file.write_bytes(qr_bytes)
-            qr_path = str(qr_file)
-        except Exception as exc:
-            _logger.warning("failed to save qr image: %s", exc)
+            qr_path = ""
+            try:
+                qr_file = Path("data/qrcodes") / f"{creation.ticket}.png"
+                qr_file.parent.mkdir(parents=True, exist_ok=True)
+                qr_file.write_bytes(qr_bytes)
+                qr_path = str(qr_file)
+            except Exception as exc:
+                _logger.warning("failed to save qr image: %s", exc)
+
+            return qr_bytes, qr_path
+
+        qr_bytes, qr_path = await asyncio.to_thread(_generate_qr, creation.url)
 
         return QRLoginSession(
             ticket=creation.ticket,
@@ -101,45 +103,42 @@ class HoYoLABProvider:
         elapsed = 0.0
         client = genshin.Client(region=self._region, device_id=device_id)
 
-        try:
-            while elapsed < timeout:
-                try:
-                    status, cookies = await client._check_qrcode(ticket)
-                except genshin.GenshinException as exc:
-                    qr_status = QRLoginStatus.EXPIRED if exc.retcode == -106 else QRLoginStatus.CANCELED
-                    _logger.info("qr poll completed with retcode=%s -> %s", exc.retcode, qr_status.value)
-                    return QRLoginSession(
-                        ticket=ticket,
-                        qr_url="",
-                        qr_image=b"",
-                        status=qr_status,
-                    )
-                except ValueError:
-                    _logger.info("qr poll: received unknown status -> CANCELED")
-                    return QRLoginSession(
-                        ticket=ticket,
-                        qr_url="",
-                        qr_image=b"",
-                        status=QRLoginStatus.CANCELED,
-                    )
+        while elapsed < timeout:
+            try:
+                status, cookies = await client._check_qrcode(ticket)
+            except genshin.GenshinException as exc:
+                qr_status = QRLoginStatus.EXPIRED if exc.retcode == -106 else QRLoginStatus.CANCELED
+                _logger.info("qr poll completed with retcode=%s -> %s", exc.retcode, qr_status.value)
+                return QRLoginSession(
+                    ticket=ticket,
+                    qr_url="",
+                    qr_image=b"",
+                    status=qr_status,
+                )
+            except ValueError:
+                _logger.info("qr poll: received unknown status -> CANCELED")
+                return QRLoginSession(
+                    ticket=ticket,
+                    qr_url="",
+                    qr_image=b"",
+                    status=QRLoginStatus.CANCELED,
+                )
 
-                if status is QRCodeStatus.CONFIRMED:
-                    dict_cookies = {key: morsel.value for key, morsel in cookies.items()}
-                    return QRLoginSession(
-                        ticket=ticket,
-                        qr_url="",
-                        qr_image=b"",
-                        status=QRLoginStatus.CONFIRMED,
-                        cookies=dict_cookies or None,
-                    )
+            if status is QRCodeStatus.CONFIRMED:
+                dict_cookies = {key: morsel.value for key, morsel in cookies.items()}
+                return QRLoginSession(
+                    ticket=ticket,
+                    qr_url="",
+                    qr_image=b"",
+                    status=QRLoginStatus.CONFIRMED,
+                    cookies=dict_cookies or None,
+                )
 
-                if status is QRCodeStatus.SCANNED:
-                    _logger.info("qr code scanned: ticket=%s", ticket)
+            if status is QRCodeStatus.SCANNED:
+                _logger.info("qr code scanned: ticket=%s", ticket)
 
-                await asyncio.sleep(interval)
-                elapsed += interval
-        finally:
-            await client.close()
+            await asyncio.sleep(interval)
+            elapsed += interval
 
         return QRLoginSession(
             ticket=ticket,
@@ -183,10 +182,8 @@ class HoYoLABProvider:
                     return str(account.uid)
             return None
         except Exception as exc:
-            _logger.warning("failed to resolve uid: %s", exc)
+            _logger.warning("failed to resolve uid: %s", exc, exc_info=True)
             return None
-        finally:
-            await client.close()
 
     async def bind(self, user_id: str, cookies: dict[str, str]) -> None:
         device_id = _generate_device_id()
@@ -211,9 +208,8 @@ class HoYoLABProvider:
         try:
             session = await self._ensure_session(user_id)
             client = self._make_client(session["cookies"], device_id=session.get("device_id"))
-            try:
-                raw = await client.get_notes(uid=int(session["uid"]) if session.get("uid") else None)
-                return NotesResult(
+            raw = await client.get_notes(uid=int(session["uid"]) if session.get("uid") else None)
+            return NotesResult(
                     data=NotesData(
                         current_resin=raw.current_resin,
                         max_resin=raw.max_resin,
@@ -224,8 +220,6 @@ class HoYoLABProvider:
                         max_daily_task=raw.max_commissions,
                     )
                 )
-            finally:
-                await client.close()
         except NotBoundError:
             raise
         except genshin.GenshinException as exc:
@@ -240,17 +234,14 @@ class HoYoLABProvider:
         try:
             session = await self._ensure_session(user_id)
             client = self._make_client(session["cookies"], device_id=session.get("device_id"))
-            try:
-                info = await client.get_reward_info(game=genshin.Game.GENSHIN)
-                if info.signed_in:
-                    return SignResult(
-                        data=CheckInResult(success=True, today_signed=True, message="今日已签到")
-                    )
+            info = await client.get_reward_info(game=genshin.Game.GENSHIN)
+            if info.signed_in:
+                return SignResult(
+                    data=CheckInResult(success=True, today_signed=True, message="今日已签到")
+                )
 
-                await client.claim_daily_reward(game=genshin.Game.GENSHIN, reward=False)
-                return SignResult(data=CheckInResult(success=True, message="签到成功"))
-            finally:
-                await client.close()
+            await client.claim_daily_reward(game=genshin.Game.GENSHIN, reward=False)
+            return SignResult(data=CheckInResult(success=True, message="签到成功"))
         except NotBoundError:
             raise
         except genshin.AlreadyClaimed:
@@ -272,16 +263,13 @@ class HoYoLABProvider:
             session = await self._ensure_session(user_id)
             resolved_uid = uid or session.get("uid")
             client = self._make_client(session["cookies"], device_id=session.get("device_id"))
-            try:
-                raw = await client.get_genshin_user(uid=int(resolved_uid) if resolved_uid else None)
-                return ChronicleResult(
-                    data=ChronicleData(
-                        uid=str(raw.info.uid),
-                        region=self._region_str,
-                    )
+            raw = await client.get_genshin_user(uid=int(resolved_uid) if resolved_uid else None)
+            return ChronicleResult(
+                data=ChronicleData(
+                    uid=str(raw.info.uid),
+                    region=self._region_str,
                 )
-            finally:
-                await client.close()
+            )
         except NotBoundError:
             raise
         except genshin.GeetestError:
@@ -291,6 +279,3 @@ class HoYoLABProvider:
         except Exception as exc:
             _logger.exception("unexpected error in get_battle_chronicle: user=%s", user_id)
             return ChronicleResult(error=f"内部错误: {exc}")
-
-    async def close(self) -> None:
-        """Each client is closed after individual use via try/finally."""

@@ -151,6 +151,12 @@ async def async_main(argv: list[str] | None = None) -> int:
         await stop_event.wait()
     finally:
         await application.stop()
+        if args.cli and cli_task and not cli_task.done():
+            cli_task.cancel()
+            try:
+                await cli_task
+            except asyncio.CancelledError:
+                pass
 
     return 0
 
