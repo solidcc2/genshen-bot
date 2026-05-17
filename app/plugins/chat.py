@@ -7,6 +7,7 @@ from app.event_model import NormalizedEvent
 from app.llm.context import ContextBuilder
 from app.llm.provider import ModelProvider
 from app.llm.routing import ModelRouter
+from app.llm.tracker import TokenUsageTracker
 from app.plugin import BotPlugin, PluginContext, PluginResult
 from app.session import SessionManager
 
@@ -22,6 +23,7 @@ class ChatPlugin(BotPlugin):
         session_manager: SessionManager,
         context_builder: ContextBuilder,
         router: ModelRouter,
+        tracker: TokenUsageTracker | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> None:
@@ -29,6 +31,7 @@ class ChatPlugin(BotPlugin):
         self._session_manager = session_manager
         self._context_builder = context_builder
         self._router = router
+        self._tracker = tracker
         self._temperature = temperature
         self._max_tokens = max_tokens
 
@@ -40,6 +43,11 @@ class ChatPlugin(BotPlugin):
         user_text = ctx.event.text.strip()
 
         session = await self._session_manager.get_or_create(chat_id)
+
+        if self._tracker is not None and not await self._tracker.has_capacity():
+            _logger.info("llm token limit reached for chat=%s", chat_id)
+            return PluginResult(text="今日对话额度已用尽，明天再来吧。")
+
         llm_messages = self._context_builder.build(session, ctx.event)
         model = self._router.select_model(user_text)
 
@@ -56,6 +64,9 @@ class ChatPlugin(BotPlugin):
 
         await self._session_manager.add_message(chat_id, "user", user_text)
         await self._session_manager.add_message(chat_id, "assistant", result.text)
+
+        if self._tracker is not None:
+            await self._tracker.record(result.usage.total_tokens)
 
         cost = self._provider.estimate_cost(result.usage)
         _logger.info(

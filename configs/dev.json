@@ -28,6 +28,6 @@
   "llm": {
     "enabled": false,
     "api_key": "",
-    "system_prompt": "你是 genshen，一个智能 AI 助手。"
+    "system_prompt": "你是 genshin，一个智能 AI 助手。"
   }
 }

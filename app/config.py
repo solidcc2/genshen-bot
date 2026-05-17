@@ -41,9 +41,11 @@ class LLMConfig:
     upgrade_model: str = "deepseek-v4-pro"
     temperature: float = 0.7
     max_tokens: int = 2048
-    system_prompt: str = "你是 genshen，一个智能 AI 助手。"
+    system_prompt: str = "你是 genshin，一个智能 AI 助手。"
     timeout: float = 60.0
     max_retries: int = 3
+    max_tokens_per_day: int = 0
+    max_tokens_total: int = 0
 
 
 @dataclass(frozen=True)
@@ -125,9 +127,11 @@ class ConfigLoader:
                 "upgrade_model": "deepseek-v4-pro",
                 "temperature": 0.7,
                 "max_tokens": 2048,
-                "system_prompt": "你是 genshen，一个智能 AI 助手。",
+                "system_prompt": "你是 genshin，一个智能 AI 助手。",
                 "timeout": 60.0,
                 "max_retries": 3,
+                "max_tokens_per_day": 0,
+                "max_tokens_total": 0,
             },
         }
 
@@ -245,6 +249,18 @@ class ConfigLoader:
                 overrides.setdefault("llm", {})["max_retries"] = int(retries_value)
             except ValueError as exc:
                 raise ConfigError(f"APP_LLM_MAX_RETRIES must be an integer: {retries_value}") from exc
+        if "APP_LLM_MAX_TOKENS_PER_DAY" in environ:
+            per_day = environ["APP_LLM_MAX_TOKENS_PER_DAY"]
+            try:
+                overrides.setdefault("llm", {})["max_tokens_per_day"] = int(per_day)
+            except ValueError as exc:
+                raise ConfigError(f"APP_LLM_MAX_TOKENS_PER_DAY must be an integer: {per_day}") from exc
+        if "APP_LLM_MAX_TOKENS_TOTAL" in environ:
+            total = environ["APP_LLM_MAX_TOKENS_TOTAL"]
+            try:
+                overrides.setdefault("llm", {})["max_tokens_total"] = int(total)
+            except ValueError as exc:
+                raise ConfigError(f"APP_LLM_MAX_TOKENS_TOTAL must be an integer: {total}") from exc
 
         return overrides
 
@@ -349,6 +365,8 @@ class ConfigLoader:
                 system_prompt=str(llm_raw.get("system_prompt", "")),
                 timeout=float(llm_raw.get("timeout", 60.0)),
                 max_retries=int(llm_raw.get("max_retries", 3)),
+                max_tokens_per_day=int(llm_raw.get("max_tokens_per_day", 0)),
+                max_tokens_total=int(llm_raw.get("max_tokens_total", 0)),
             ),
             providers=providers,
         )

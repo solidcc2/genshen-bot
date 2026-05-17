@@ -14,7 +14,7 @@ class TestLLMConfigDefaults:
 
     def test_llm_has_system_prompt(self) -> None:
         cfg = ConfigLoader.load()
-        assert "genshen" in cfg.llm.system_prompt
+        assert "genshin" in cfg.llm.system_prompt
 
 
 class TestLLMConfigEnvOverrides:

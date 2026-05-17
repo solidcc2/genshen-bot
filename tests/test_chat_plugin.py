@@ -4,6 +4,7 @@ from app.event_model import NormalizedEvent, Scene
 from app.llm.context import ContextBuilder
 from app.llm.models import LLMMessage
 from app.llm.routing import ModelRouter
+from app.llm.tracker import TokenUsageTracker
 from app.plugin import PluginContext, PluginRegistry
 from app.plugins.chat import ChatPlugin
 from app.session import Session, SessionManager
@@ -149,3 +150,48 @@ class TestChatPluginHandle:
         assert len(sb.messages) == 2
         assert sa.messages[0].text == "msg1"
         assert sb.messages[0].text == "msg2"
+
+    async def test_returns_quota_message_when_tracker_blocks(self) -> None:
+        storage = MemoryStorage()
+        session_manager = SessionManager(storage)
+        plugins = PluginRegistry()
+        provider = FakeModelProvider("OK")
+        context_builder = ContextBuilder(persona="test", plugin_registry=plugins)
+        router = ModelRouter()
+        tracker = TokenUsageTracker(storage, max_per_day=10)
+        await tracker.record(10)  # daily quota exhausted
+        plugin = ChatPlugin(
+            provider=provider,
+            session_manager=session_manager,
+            context_builder=context_builder,
+            router=router,
+            tracker=tracker,
+        )
+        event = make_event("hello")
+        ctx = PluginContext(event=event, sender=FakeSender())
+        result = await plugin.handle(ctx)
+
+        assert "用尽" in (result.text or "")
+        assert provider.call_count == 0  # LLM was NOT invoked
+
+    async def test_records_tokens_after_success(self) -> None:
+        storage = MemoryStorage()
+        session_manager = SessionManager(storage)
+        plugins = PluginRegistry()
+        provider = FakeModelProvider("OK")
+        context_builder = ContextBuilder(persona="test", plugin_registry=plugins)
+        router = ModelRouter()
+        tracker = TokenUsageTracker(storage, max_per_day=100)
+        plugin = ChatPlugin(
+            provider=provider,
+            session_manager=session_manager,
+            context_builder=context_builder,
+            router=router,
+            tracker=tracker,
+        )
+        event = make_event("hello")
+        ctx = PluginContext(event=event, sender=FakeSender())
+        await plugin.handle(ctx)
+
+        daily = await tracker.daily_usage()
+        assert daily > 0
