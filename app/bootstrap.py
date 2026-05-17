@@ -113,6 +113,7 @@ def _register_core_plugins(context: AppContext) -> None:
 
     _register_genshin_plugins(context)
     _register_chat_plugin(context)
+    _register_staticdata_plugins(context)
 
     # NullPlugin must be registered last — its match() always returns True
     context.router.register(NullPlugin())
@@ -178,6 +179,17 @@ def _register_genshin_plugins(context: AppContext) -> None:
     )
     if provider is not None:
         context.services.register("hoyolab_provider", provider)
+
+
+def _register_staticdata_plugins(context: AppContext) -> None:
+    from pathlib import Path
+
+    from app.plugins.staticdata import DataPlugin
+    from app.providers.staticdata import StaticDataProvider
+
+    data_dir = Path(__file__).resolve().parent / "data"
+    provider = StaticDataProvider(data_dir)
+    context.router.register(DataPlugin(provider))
 
 
 async def async_main(argv: list[str] | None = None) -> int:
