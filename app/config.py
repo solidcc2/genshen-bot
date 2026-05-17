@@ -46,6 +46,11 @@ class LLMConfig:
     max_retries: int = 3
     max_tokens_per_day: int = 0
     max_tokens_total: int = 0
+    response_mode: str = "auto"
+    bot_qq_id: str = ""
+    bot_name: str = ""
+    threshold: int = 50
+    signals: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -132,6 +137,11 @@ class ConfigLoader:
                 "max_retries": 3,
                 "max_tokens_per_day": 0,
                 "max_tokens_total": 0,
+                "response_mode": "auto",
+                "bot_qq_id": "",
+                "bot_name": "",
+                "threshold": 50,
+                "signals": {},
             },
         }
 
@@ -249,6 +259,18 @@ class ConfigLoader:
                 overrides.setdefault("llm", {})["max_retries"] = int(retries_value)
             except ValueError as exc:
                 raise ConfigError(f"APP_LLM_MAX_RETRIES must be an integer: {retries_value}") from exc
+        if "APP_LLM_RESPONSE_MODE" in environ:
+            overrides.setdefault("llm", {})["response_mode"] = environ["APP_LLM_RESPONSE_MODE"]
+        if "APP_LLM_BOT_QQ_ID" in environ:
+            overrides.setdefault("llm", {})["bot_qq_id"] = environ["APP_LLM_BOT_QQ_ID"]
+        if "APP_LLM_BOT_NAME" in environ:
+            overrides.setdefault("llm", {})["bot_name"] = environ["APP_LLM_BOT_NAME"]
+        if "APP_LLM_THRESHOLD" in environ:
+            threshold_value = environ["APP_LLM_THRESHOLD"]
+            try:
+                overrides.setdefault("llm", {})["threshold"] = int(threshold_value)
+            except ValueError as exc:
+                raise ConfigError(f"APP_LLM_THRESHOLD must be an integer: {threshold_value}") from exc
         if "APP_LLM_MAX_TOKENS_PER_DAY" in environ:
             per_day = environ["APP_LLM_MAX_TOKENS_PER_DAY"]
             try:
@@ -367,6 +389,11 @@ class ConfigLoader:
                 max_retries=int(llm_raw.get("max_retries", 3)),
                 max_tokens_per_day=int(llm_raw.get("max_tokens_per_day", 0)),
                 max_tokens_total=int(llm_raw.get("max_tokens_total", 0)),
+                response_mode=str(llm_raw.get("response_mode", "auto")),
+                bot_qq_id=str(llm_raw.get("bot_qq_id", "")),
+                bot_name=str(llm_raw.get("bot_name", "")),
+                threshold=int(llm_raw.get("threshold", 50)),
+                signals=dict(llm_raw.get("signals", {})),
             ),
             providers=providers,
         )

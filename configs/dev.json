@@ -28,6 +28,44 @@
   "llm": {
     "enabled": false,
     "api_key": "",
-    "system_prompt": "你是 genshin，一个智能 AI 助手。"
+    "endpoint": "https://api.deepseek.com/chat/completions",
+    "default_model": "deepseek-v4-flash",
+    "upgrade_model": "deepseek-v4-pro",
+    "temperature": 0.7,
+    "max_tokens": 2048,
+    "system_prompt": "你是 genshin，一个智能 AI 助手。",
+    "timeout": 60.0,
+    "max_retries": 3,
+    "max_tokens_per_day": 0,
+    "max_tokens_total": 0,
+
+    "response_mode": "auto",
+    "bot_qq_id": "2802469845",
+    "bot_name": "",
+    "threshold": 50,
+    "signals": {
+      "at_mention": { "enabled": true },
+      "reply_to_bot": { "enabled": true },
+      "keyword": {
+        "enabled": true,
+        "weight": 25,
+        "triggers": ["原神", "胡桃"]
+      },
+      "question": {
+        "enabled": true,
+        "weight": 30,
+        "patterns": ["?", "吗", "什么", "怎么", "哪", "谁", "为什么", "如何"]
+      },
+      "noise_filter": {
+        "enabled": true,
+        "weight": -50,
+        "min_length": 2
+      },
+      "random": {
+        "enabled": true,
+        "chance": 0.03,
+        "weight": 60
+      }
+    }
   }
 }

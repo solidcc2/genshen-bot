@@ -56,6 +56,8 @@ class CLIAdapter:
                 line = await asyncio.to_thread(sys.stdin.readline)
             except (KeyboardInterrupt, EOFError):
                 break
+            except asyncio.CancelledError:
+                break
 
             if not line:
                 break  # EOF

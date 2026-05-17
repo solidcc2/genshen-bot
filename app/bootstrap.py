@@ -129,6 +129,7 @@ def _register_chat_plugin(context: AppContext) -> None:
 
     from app.llm import ContextBuilder, DeepSeekProvider, ModelRouter
     from app.plugins.chat import ChatPlugin
+    from app.signals import create_evaluator
 
     assert context.session_manager is not None
 
@@ -145,6 +146,14 @@ def _register_chat_plugin(context: AppContext) -> None:
     context_builder = ContextBuilder(
         persona=llm_config.system_prompt,
         plugin_registry=context.plugins,
+    )
+
+    signal_evaluator = create_evaluator(
+        mode=llm_config.response_mode,
+        bot_qq_id=llm_config.bot_qq_id,
+        bot_name=llm_config.bot_name,
+        threshold=llm_config.threshold,
+        signals=llm_config.signals,
     )
 
     tracker = None
@@ -165,6 +174,7 @@ def _register_chat_plugin(context: AppContext) -> None:
         tracker=tracker,
         temperature=llm_config.temperature,
         max_tokens=llm_config.max_tokens,
+        signal_evaluator=signal_evaluator,
     ))
     context.services.register("llm_provider", provider)
 
@@ -217,6 +227,9 @@ async def async_main(argv: list[str] | None = None) -> int:
         cli_task = asyncio.create_task(cli.run())
 
         def _on_cli_done(task: asyncio.Task[None]) -> None:
+            if task.cancelled():
+                stop_event.set()
+                return
             exc = task.exception()
             if exc:
                 print(f"CLI adapter error: {exc}", file=sys.stderr)

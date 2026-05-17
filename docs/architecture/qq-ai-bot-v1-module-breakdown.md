@@ -214,7 +214,13 @@
   - 覆盖 `M11`
   - 目标：用户设置提醒后，系统能够恢复并按时发送
   - 这是第一批跨模块组合能力
-- `CP10 观测与收口`
+- `CP10 响应门控：信号架构`
+  - 覆盖 `M10（增强）`
+  - 目标：ChatPlugin 接入可配置信号评估系统，在群聊场景下按策略决定是否触发 LLM 回复，降低冗余
+  - 产出：SignalEvaluator、4 种响应模式（all/auto/mention/none）、硬信号（@/回复 bypass）、软信号（关键词/疑问/噪音评分）、随机后处理器、降级链
+  - 前置：CP8
+  - 不改变 BotPlugin ABC 和 Router 主线，门控在 ChatPlugin.handle() 内
+- `CP11 观测与收口`
   - 覆盖 `M12 + M13`
   - 目标：完善日志、健康诊断、端到端回归清单，形成 v1 可持续迭代基线
 
@@ -261,14 +267,14 @@
 |---|------|------|----------|
 | L3 | 自动签到定时任务 | `/sign` 当前是手动指令，适合作为定时任务自动执行。CP9 实现 Scheduler 时考虑将米游社签到注册为定时 job | 用户需要每天手动签到，产品体验不完整 |
 
-### CP10（M12+M13 观测与收口）相关
+### CP11（M12+M13 观测与收口，推迟）相关
 
 | # | 问题 | 说明 | 遗忘风险 |
 |---|------|------|----------|
-| L4 | `AppContext` 瘦身 | 随着服务增多，`AppContext` 字段持续增长。建议 CP10 时 review 是否可将 storage、session_manager、rate_limiter 归入 `ServiceRegistry` | 上帝对象持续膨胀，模块边界模糊 |
-| L6 | `bootstrap._register_builtin_plugins` 拆分改名 | 当前函数名不副实：同时注册了 builtin 插件（echo/ping/help）和业务插件（genshin）。CP10 收口时应拆分为 `_register_core_plugins` + `_register_business_plugins`，由 bootstrap 上层编排 | 启动流程层次混乱，不利于后续 adapter 初始化编排 |
-| L7 | `genshin.Client` 资源管理 | `HoYoLABProvider._make_client` 每次 API 调用都创建新的 `genshin.Client` 但不调用 `close()`。短期被 GC 回收无害，长期可能泄漏 session 池。CP10 时加上上下文管理或 client 缓存/池化 | RuntimeWarning：coroutine close 未被 await |
-| L8 | `data/qrcodes/` QR 文件自动清理 | `start_qr_login` 保存二维码图片到磁盘但从不清理过期文件。CP10 实现定时清理策略（如超过 1 小时的 .png 文件删除）或接入存储层 TTL | 长期运行磁盘使用量持续增长 |
+| L4 | `AppContext` 瘦身 | 随着服务增多，`AppContext` 字段持续增长。建议 CP11 时 review 是否可将 storage、session_manager、rate_limiter 归入 `ServiceRegistry` | 上帝对象持续膨胀，模块边界模糊 |
+| L6 | `bootstrap._register_builtin_plugins` 拆分改名 | 当前函数名不副实：同时注册了 builtin 插件（echo/ping/help）和业务插件（genshin）。CP11 收口时应拆分为 `_register_core_plugins` + `_register_business_plugins`，由 bootstrap 上层编排 | 启动流程层次混乱，不利于后续 adapter 初始化编排 |
+| L7 | `genshin.Client` 资源管理 | `HoYoLABProvider._make_client` 每次 API 调用都创建新的 `genshin.Client` 但不调用 `close()`。短期被 GC 回收无害，长期可能泄漏 session 池。CP11 时加上上下文管理或 client 缓存/池化 | RuntimeWarning：coroutine close 未被 await |
+| L8 | `data/qrcodes/` QR 文件自动清理 | `start_qr_login` 保存二维码图片到磁盘但从不清理过期文件。CP11 实现定时清理策略（如超过 1 小时的 .png 文件删除）或接入存储层 TTL | 长期运行磁盘使用量持续增长 |
 
 ### 跨 CP 通用
 
@@ -283,20 +289,22 @@
 - 默认允许部分外部依赖模块以集成验收为主，但必须在文档中写出原因，而不是模糊地”后续再测”。
 - 默认实现顺序优先保证”内部边界先稳定，再接外部系统”，避免一开始就被 NapCat、Enka、米游社、模型接口牵着走。
 
-## 产品功能路线图（2026-05-17 重排）
+## 产品功能路线图（2026-05-18 重排）
 
-根据产品价值排序，使用频率高 + 信息可靠度优先，重新定义 CP9-CP12：
+根据产品价值排序，使用频率高 + 信息可靠度优先，重新定义 CP9-CP13：
 
 | CP | 功能 | 数据特征 | 前置依赖 |
 |----|------|---------|---------|
 | **CP9** | 角色养成材料 + BOSS 属性查询 | 静态 JSON 嵌入，一次录入永久有效，零外部依赖 | 存储层（已有） |
-| **CP10** | 深渊阵容预告与刷新日历 | 定期抓取 data-mining（Dimbreath/amb-charts） | 存储层、httpx（已有） |
-| **CP11** | 前瞻直播总结 | 源材料 → LLM 摘要 | LLM ChatPlugin（已有） |
-| **CP12** | 配队推荐 / 战斗方案 | Enka 面板 + AI 推理（后期） | Enka、LLM |
+| **CP10** | 响应门控：信号架构 | LLM 触发器评分门控，可配置信号插拔，零外部依赖 | ChatPlugin（已有） |
+| **CP11** | 深渊阵容预告与刷新日历 | 定期抓取 data-mining（Dimbreath/amb-charts） | 存储层、httpx（已有） |
+| **CP12** | 前瞻直播总结 | 源材料 → LLM 摘要 | LLM ChatPlugin（已有） |
+| **CP13** | 配队推荐 / 战斗方案 | Enka 面板 + AI 推理（后期） | Enka、LLM |
 
 ### 原 CP 调整说明
 
 - **CP5 原神静态资料（原 M7）** → 合并到新 CP9，以角色养成为切入点落地
 - **CP6 Enka 公开面板（原 M8）** → 降级，待配队推荐或 UID 查询需求时再启动
+- **CP10 响应门控（新）** → 因群聊 LLM 冗余问题紧急插入，优先于深渊/直播功能
 - **原 CP9 提醒调度（原 M11）** → 推迟，优先交付数据查询类功能
 - **原 CP10 观测收口（原 M12+M13）** → 推迟，贯穿开发持续完善

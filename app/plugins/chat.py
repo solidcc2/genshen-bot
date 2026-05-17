@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from app.errors import LLMError
-from app.event_model import NormalizedEvent
+from app.event_model import NormalizedEvent, Scene
 from app.llm.context import ContextBuilder
 from app.llm.provider import ModelProvider
 from app.llm.routing import ModelRouter
 from app.llm.tracker import TokenUsageTracker
 from app.plugin import BotPlugin, PluginContext, PluginResult
 from app.session import SessionManager
+
+if TYPE_CHECKING:
+    from app.signals import SignalEvaluator
 
 _logger = logging.getLogger(__name__)
 
@@ -26,6 +30,7 @@ class ChatPlugin(BotPlugin):
         tracker: TokenUsageTracker | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        signal_evaluator: SignalEvaluator | None = None,
     ) -> None:
         self._provider = provider
         self._session_manager = session_manager
@@ -34,11 +39,16 @@ class ChatPlugin(BotPlugin):
         self._tracker = tracker
         self._temperature = temperature
         self._max_tokens = max_tokens
+        self._signal_evaluator = signal_evaluator
 
     def match(self, event: NormalizedEvent) -> bool:
         return not event.text.strip().startswith("/")
 
     async def handle(self, ctx: PluginContext) -> PluginResult:
+        # Gate: only GROUP/GUILD scenes check the signal evaluator
+        if ctx.event.scene != Scene.PRIVATE and self._signal_evaluator is not None:
+            if not self._signal_evaluator.should_respond(ctx.event):
+                return PluginResult()  # empty → sender sends nothing
         chat_id = ctx.event.chat_id
         user_text = ctx.event.text.strip()
 

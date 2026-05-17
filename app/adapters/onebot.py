@@ -9,16 +9,27 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, Request, Response
 
-from app.event_model import MessageSender, NormalizedEvent, ReplyTarget, Scene
+from app.event_model import Mention, MessageSender, NormalizedEvent, ReplyTarget, Scene
 from app.router import Router
 
 _logger = logging.getLogger(__name__)
 
 _CQ_RE = re.compile(r"\[CQ:[^\]]+\]")
+_CQ_AT_RE = re.compile(r"\[CQ:at,qq=(\d+)\]")
+_CQ_REPLY_RE = re.compile(r"\[CQ:reply,id=(-?\d+)\]")
 
 
 def _strip_cq_codes(text: str) -> str:
     return _CQ_RE.sub("", text).strip()
+
+
+def _parse_mentions(raw_text: str) -> tuple[Mention, ...]:
+    return tuple(Mention(user_id=m.group(1)) for m in _CQ_AT_RE.finditer(raw_text))
+
+
+def _parse_reply_to(raw_text: str) -> str | None:
+    m = _CQ_REPLY_RE.search(raw_text)
+    return m.group(1) if m else None
 
 
 def _parse_event(data: dict[str, Any]) -> NormalizedEvent | None:
@@ -44,6 +55,9 @@ def _parse_event(data: dict[str, Any]) -> NormalizedEvent | None:
     if not text:
         return None
 
+    mentions = _parse_mentions(raw_text)
+    reply_to = _parse_reply_to(raw_text)
+
     return NormalizedEvent(
         platform="qq",
         adapter="onebot",
@@ -52,6 +66,8 @@ def _parse_event(data: dict[str, Any]) -> NormalizedEvent | None:
         user_id=user_id,
         message_id=message_id,
         text=text,
+        mentions=mentions,
+        reply_to=reply_to,
     )
 
 
