@@ -21,14 +21,12 @@ class LLMRefreshEnvPlugin(BotPlugin):
     def help(self) -> PluginHelp | None:
         return PluginHelp(
             command="llm-refresh-env",
-            description="重置 LLM 环境上下文，清空对话历史并移动可见游标",
+            description="重置 LLM 环境上下文，移动可见游标",
             category="通用",
         )
 
     async def handle(self, ctx: PluginContext) -> PluginResult:
         session = await self._session_manager.get_or_create(ctx.event.chat_id)
-        session.messages.clear()
-        session.state.clear()
         session.state["llm_context_since_msg"] = ctx.event.message_id
         await self._session_manager.save(session)
         return PluginResult(text="聊天上下文已重置。")

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from app.errors import LLMError
@@ -10,12 +12,27 @@ from app.llm.provider import ModelProvider
 from app.llm.routing import ModelRouter
 from app.llm.tracker import TokenUsageTracker
 from app.plugin import BotPlugin, PluginContext, PluginResult
-from app.session import SessionManager
 
 if TYPE_CHECKING:
     from app.signals import SignalEvaluator
+    from app.session import SessionManager
 
 _logger = logging.getLogger(__name__)
+
+_RESPONSE_PATTERN = re.compile(r"^\s*(是|否)\s*,\s*\+?(\d+)\s*s\s*,?\s*(.*)", re.DOTALL)
+
+
+def _parse_response(text: str) -> tuple[bool, int]:
+    """Parse LLM response into (should_reply, delay_seconds).
+
+    Returns (True, 0) on no-match for backward compatibility.
+    """
+    m = _RESPONSE_PATTERN.match(text.strip())
+    if not m:
+        return True, 0
+    if m.group(1) == "否":
+        return False, 0
+    return True, int(m.group(2))
 
 
 class ChatPlugin(BotPlugin):
@@ -31,6 +48,7 @@ class ChatPlugin(BotPlugin):
         temperature: float | None = None,
         max_tokens: int | None = None,
         signal_evaluator: SignalEvaluator | None = None,
+        max_response_delay: int = 20,
     ) -> None:
         self._provider = provider
         self._session_manager = session_manager
@@ -40,6 +58,7 @@ class ChatPlugin(BotPlugin):
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._signal_evaluator = signal_evaluator
+        self._max_response_delay = max_response_delay
 
     def match(self, event: NormalizedEvent) -> bool:
         return not event.text.strip().startswith("/")
@@ -48,17 +67,17 @@ class ChatPlugin(BotPlugin):
         # Gate: only GROUP/GUILD scenes check the signal evaluator
         if ctx.event.scene != Scene.PRIVATE and self._signal_evaluator is not None:
             if not self._signal_evaluator.should_respond(ctx.event):
-                return PluginResult()  # empty → sender sends nothing
+                return PluginResult()  # empty -> sender sends nothing
         chat_id = ctx.event.chat_id
         user_text = ctx.event.text.strip()
-
-        session = await self._session_manager.get_or_create(chat_id)
 
         if self._tracker is not None and not await self._tracker.has_capacity():
             _logger.info("llm token limit reached for chat=%s", chat_id)
             return PluginResult(text="今日对话额度已用尽，明天再来吧。")
 
-        llm_messages = await self._context_builder.build(session, ctx.event)
+        session = await self._session_manager.get_or_create(chat_id)
+        cursor_msg_id = session.state.get("llm_context_since_msg")
+        llm_messages = await self._context_builder.build(ctx.event, cursor_msg_id=cursor_msg_id)
         model = self._router.select_model(user_text)
 
         try:
@@ -71,9 +90,6 @@ class ChatPlugin(BotPlugin):
         except LLMError as exc:
             _logger.warning("llm generation failed for chat=%s: %s", chat_id, exc)
             return PluginResult(text=f"抱歉，我现在无法回答。{exc}")
-
-        await self._session_manager.add_message(chat_id, "user", user_text)
-        await self._session_manager.add_message(chat_id, "assistant", result.text)
 
         if self._tracker is not None:
             await self._tracker.record(result.usage.total_tokens)
@@ -90,4 +106,15 @@ class ChatPlugin(BotPlugin):
             result.usage.latency_ms,
         )
 
-        return PluginResult(text=result.text)
+        text = result.text or ""
+        reply, delay = _parse_response(text)
+        if not reply:
+            return PluginResult()
+
+        if delay > 0:
+            clamped = min(delay, self._max_response_delay)
+            if clamped != delay:
+                _logger.info("response delay clamped %ds -> %ds for chat=%s", delay, clamped, chat_id)
+            await asyncio.sleep(clamped)
+
+        return PluginResult(text=text)

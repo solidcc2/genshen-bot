@@ -53,7 +53,8 @@ class LLMConfig:
     bot_name: str = ""
     threshold: int = 50
     signals: dict[str, object] = field(default_factory=dict)
-    context_messages_limit: int = 20
+    context_messages_limit: int = 50
+    max_response_delay: int = 20
 
 
 @dataclass(frozen=True)
@@ -147,7 +148,8 @@ class ConfigLoader:
                 "bot_name": "",
                 "threshold": 50,
                 "signals": {},
-                "context_messages_limit": 20,
+                "context_messages_limit": 50,
+                "max_response_delay": 20,
             },
         }
 
@@ -402,7 +404,8 @@ class ConfigLoader:
                 bot_name=str(llm_raw.get("bot_name", "")),
                 threshold=int(llm_raw.get("threshold", 50)),
                 signals=dict(llm_raw.get("signals", {})),
-                context_messages_limit=int(llm_raw.get("context_messages_limit", 20)),
+                context_messages_limit=int(llm_raw.get("context_messages_limit", 50)),
+                max_response_delay=int(llm_raw.get("max_response_delay", 20)),
             ),
             providers=providers,
         )

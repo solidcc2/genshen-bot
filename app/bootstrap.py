@@ -79,7 +79,12 @@ def build_application(
     # Storage first — Router depends on dedup from storage
     _init_storage(context)
 
-    context.router = Router(context.plugins, dedup=context.dedup, chat_log=context.chat_log)
+    context.router = Router(
+        context.plugins,
+        dedup=context.dedup,
+        chat_log=context.chat_log,
+        bot_user_id=context.config.llm.bot_qq_id,
+    )
     _register_core_plugins(context)
 
     # OneBot adapter (runs if enabled in config)
@@ -174,6 +179,7 @@ def _register_chat_plugin(context: AppContext) -> None:
         plugin_registry=context.plugins,
         chat_log=context.chat_log,
         context_limit=llm_config.context_messages_limit,
+        bot_user_id=llm_config.bot_qq_id,
     )
 
     signal_evaluator = create_evaluator(
@@ -203,6 +209,7 @@ def _register_chat_plugin(context: AppContext) -> None:
         temperature=llm_config.temperature,
         max_tokens=llm_config.max_tokens,
         signal_evaluator=signal_evaluator,
+        max_response_delay=llm_config.max_response_delay,
     ))
     context.services.register("llm_provider", provider)
 
