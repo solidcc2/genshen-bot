@@ -78,6 +78,7 @@ class ChatPlugin(BotPlugin):
         session = await self._session_manager.get_or_create(chat_id)
         cursor_msg_id = session.state.get("llm_context_since_msg")
         llm_messages = await self._context_builder.build(ctx.event, cursor_msg_id=cursor_msg_id)
+        _logger.debug("llm prompt for chat=%s: %s", chat_id, llm_messages)
         model = self._router.select_model(user_text)
 
         try:
@@ -90,6 +91,8 @@ class ChatPlugin(BotPlugin):
         except LLMError as exc:
             _logger.warning("llm generation failed for chat=%s: %s", chat_id, exc)
             return PluginResult(text=f"抱歉，我现在无法回答。{exc}")
+
+        _logger.debug("llm raw response for chat=%s: %s", chat_id, result.text)
 
         if self._tracker is not None:
             await self._tracker.record(result.usage.total_tokens)
