@@ -84,6 +84,12 @@ class SessionManager:
             session.messages = session.messages[-self._max_history :]
         await self.save(session)
 
+    async def clear_messages(self, chat_id: str) -> None:
+        session = await self.get_or_create(chat_id)
+        session.messages.clear()
+        session.state.clear()
+        await self.save(session)
+
     async def set_state(self, chat_id: str, key: str, value: Any) -> None:
         session = await self.get_or_create(chat_id)
         session.state[key] = value

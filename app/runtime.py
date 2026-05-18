@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from app.chat_log import ChatLogStore
 from app.config import AppConfig
 from app.dedup import MessageDedupStore
 from app.errors import ServiceRegistrationError
@@ -62,6 +63,7 @@ class AppContext:
     session_manager: SessionManager | None = None
     rate_limiter: RateLimiter | None = None
     dedup: MessageDedupStore | None = None
+    chat_log: ChatLogStore | None = None
 
     # router is set after _init_storage in bootstrap, use property access
     _router: Router | None = field(default=None, repr=False)

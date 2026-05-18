@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from app.adapters import CLIAdapter
+from app.chat_log import ChatLogStore
 from app.config import ConfigLoader
 from app.dedup import MessageDedupStore
 from app.errors import ApplicationStateError, BootstrapError
@@ -57,6 +58,8 @@ class Application:
 
         if self.context.storage is not None:
             await self.context.storage.close()
+        if self.context.chat_log is not None:
+            await self.context.chat_log.close()
 
         self.context.runtime.mark_stopped()
         self.context.logger.info("application stopped")
@@ -74,7 +77,7 @@ def build_application(
     # Storage first — Router depends on dedup from storage
     _init_storage(context)
 
-    context.router = Router(context.plugins, dedup=context.dedup)
+    context.router = Router(context.plugins, dedup=context.dedup, chat_log=context.chat_log)
     _register_core_plugins(context)
 
     # OneBot adapter (runs if enabled in config)
@@ -101,6 +104,11 @@ def _init_storage(context: AppContext) -> None:
     context.session_manager = SessionManager(storage)
     context.rate_limiter = RateLimiter(storage)
     context.dedup = MessageDedupStore(storage)
+    context.chat_log = ChatLogStore(
+        context.config.storage.db_path,
+        max_count=context.config.storage.chat_log_max,
+        min_count=context.config.storage.chat_log_min,
+    )
 
 
 def _register_core_plugins(context: AppContext) -> None:
@@ -111,12 +119,20 @@ def _register_core_plugins(context: AppContext) -> None:
     for plugin in (echo, ping, help_):
         context.router.register(plugin)
 
+    _register_chat_log_admin_plugin(context)
     _register_genshin_plugins(context)
     _register_chat_plugin(context)
     _register_staticdata_plugins(context)
 
     # NullPlugin must be registered last — its match() always returns True
     context.router.register(NullPlugin())
+
+
+def _register_chat_log_admin_plugin(context: AppContext) -> None:
+    from app.plugins.chat_log_admin import ChatLogClearPlugin
+
+    if context.chat_log is not None:
+        context.router.register(ChatLogClearPlugin(context.chat_log))
 
 
 def _register_chat_plugin(context: AppContext) -> None:
@@ -146,6 +162,8 @@ def _register_chat_plugin(context: AppContext) -> None:
     context_builder = ContextBuilder(
         persona=llm_config.system_prompt,
         plugin_registry=context.plugins,
+        chat_log=context.chat_log,
+        context_limit=llm_config.context_messages_limit,
     )
 
     signal_evaluator = create_evaluator(
@@ -175,6 +193,7 @@ def _register_chat_plugin(context: AppContext) -> None:
         temperature=llm_config.temperature,
         max_tokens=llm_config.max_tokens,
         signal_evaluator=signal_evaluator,
+        chat_log=context.chat_log,
     ))
     context.services.register("llm_provider", provider)
 

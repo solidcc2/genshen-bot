@@ -24,6 +24,8 @@ class HTTPConfig:
 class StorageConfig:
     backend: str
     db_path: str = ""
+    chat_log_max: int = 1000
+    chat_log_min: int = 500
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,7 @@ class LLMConfig:
     bot_name: str = ""
     threshold: int = 50
     signals: dict[str, object] = field(default_factory=dict)
+    context_messages_limit: int = 20
 
 
 @dataclass(frozen=True)
@@ -110,6 +113,8 @@ class ConfigLoader:
             "storage": {
                 "backend": "sqlite",
                 "db_path": "data/bot.db",
+                "chat_log_max": 1000,
+                "chat_log_min": 500,
             },
             "providers": {
                 "hoyolab": {
@@ -142,6 +147,7 @@ class ConfigLoader:
                 "bot_name": "",
                 "threshold": 50,
                 "signals": {},
+                "context_messages_limit": 20,
             },
         }
 
@@ -364,6 +370,8 @@ class ConfigLoader:
             storage=StorageConfig(
                 backend=storage_backend,
                 db_path=storage_db_path,
+                chat_log_max=int(storage.get("chat_log_max", 1000)),
+                chat_log_min=int(storage.get("chat_log_min", 500)),
             ),
             hoyolab=HoYoLABConfig(
                 qr_timeout=hoyolab_raw.get("qr_timeout", 120.0),
@@ -394,6 +402,7 @@ class ConfigLoader:
                 bot_name=str(llm_raw.get("bot_name", "")),
                 threshold=int(llm_raw.get("threshold", 50)),
                 signals=dict(llm_raw.get("signals", {})),
+                context_messages_limit=int(llm_raw.get("context_messages_limit", 20)),
             ),
             providers=providers,
         )

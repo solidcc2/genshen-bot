@@ -10,7 +10,9 @@
   },
   "storage": {
     "backend": "sqlite",
-    "db_path": "data/bot.db"
+    "db_path": "data/bot.db",
+    "chat_log_max": 1000,
+    "chat_log_min": 500
   },
   "providers": {
     "hoyolab": {
@@ -66,6 +68,7 @@
         "chance": 0.03,
         "weight": 60
       }
-    }
+    },
+    "context_messages_limit": 20
   }
 }
