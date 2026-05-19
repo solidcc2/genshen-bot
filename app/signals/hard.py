@@ -11,14 +11,14 @@ class AtMention(Signal):
 
     name = "at_mention"
 
-    def __init__(self, config: dict[str, Any], bot_qq_id: str, bot_name: str = "") -> None:
+    def __init__(self, config: dict[str, Any], bot_user_id: str, bot_name: str = "") -> None:
         super().__init__(config)
-        self._bot_qq_id = bot_qq_id
+        self._bot_user_id = bot_user_id
         self._bot_name = bot_name
 
     def evaluate(self, event: NormalizedEvent) -> SignalVerdict:
         for m in event.mentions:
-            if m.user_id == self._bot_qq_id:
+            if m.user_id == self._bot_user_id:
                 return SignalVerdict(bypass=True, reason="at_mention")
 
         if self._bot_name and self._bot_name in event.text:
@@ -32,12 +32,12 @@ class ReplyToBot(Signal):
 
     name = "reply_to_bot"
 
-    def __init__(self, config: dict[str, Any], bot_qq_id: str) -> None:
+    def __init__(self, config: dict[str, Any], bot_user_id: str) -> None:
         super().__init__(config)
-        self._bot_qq_id = bot_qq_id
+        self._bot_user_id = bot_user_id
 
     def evaluate(self, event: NormalizedEvent) -> SignalVerdict:
-        if event.reply_to == self._bot_qq_id:
+        if event.reply_to == self._bot_user_id:
             return SignalVerdict(bypass=True, reason="reply_to_bot")
 
         return SignalVerdict(reason="not_reply_to_bot")

@@ -36,33 +36,33 @@ class TestSignalVerdict:
 
 class TestAtMention:
     def test_bypass_when_mentioned(self) -> None:
-        sig = AtMention({"enabled": True}, bot_qq_id="123")
+        sig = AtMention({"enabled": True}, bot_user_id="123")
         event = _group_event("hello", mentions=(Mention(user_id="123"),))
         v = sig.evaluate(event)
         assert v.bypass is True
         assert "at_mention" in v.reason
 
     def test_no_bypass_when_not_mentioned(self) -> None:
-        sig = AtMention({"enabled": True}, bot_qq_id="123")
+        sig = AtMention({"enabled": True}, bot_user_id="123")
         event = _group_event("hello", mentions=(Mention(user_id="456"),))
         v = sig.evaluate(event)
         assert v.bypass is False
 
     def test_bypass_when_text_mentioned(self) -> None:
-        sig = AtMention({"enabled": True}, bot_qq_id="123", bot_name="genshin")
+        sig = AtMention({"enabled": True}, bot_user_id="123", bot_name="genshin")
         event = _group_event("genshin help")
         v = sig.evaluate(event)
         assert v.bypass is True
         assert "text_mention" in v.reason
 
     def test_no_mentions_tuple(self) -> None:
-        sig = AtMention({"enabled": True}, bot_qq_id="123")
+        sig = AtMention({"enabled": True}, bot_user_id="123")
         event = _group_event("hello")
         v = sig.evaluate(event)
         assert v.bypass is False
 
     def test_disabled(self) -> None:
-        sig = AtMention({"enabled": False}, bot_qq_id="123")
+        sig = AtMention({"enabled": False}, bot_user_id="123")
         event = _group_event("hello", mentions=(Mention(user_id="123"),))
         # enabled=False still evaluates but SignalEvaluator skips it
         v = sig.evaluate(event)
@@ -73,20 +73,20 @@ class TestAtMention:
 
 class TestReplyToBot:
     def test_bypass_when_reply_to_bot(self) -> None:
-        sig = ReplyToBot({"enabled": True}, bot_qq_id="123")
+        sig = ReplyToBot({"enabled": True}, bot_user_id="123")
         event = _group_event("ok", reply_to="123")
         v = sig.evaluate(event)
         assert v.bypass is True
         assert "reply_to_bot" in v.reason
 
     def test_no_bypass_when_reply_to_other(self) -> None:
-        sig = ReplyToBot({"enabled": True}, bot_qq_id="123")
+        sig = ReplyToBot({"enabled": True}, bot_user_id="123")
         event = _group_event("ok", reply_to="456")
         v = sig.evaluate(event)
         assert v.bypass is False
 
     def test_no_bypass_when_no_reply(self) -> None:
-        sig = ReplyToBot({"enabled": True}, bot_qq_id="123")
+        sig = ReplyToBot({"enabled": True}, bot_user_id="123")
         event = _group_event("ok")
         v = sig.evaluate(event)
         assert v.bypass is False
@@ -232,19 +232,19 @@ class TestSignalEvaluator:
         assert evaluator.should_respond(event) is False
 
     def test_mode_mention_bypass_on_at(self) -> None:
-        evaluator = create_evaluator(mode="mention", bot_qq_id="123")
+        evaluator = create_evaluator(mode="mention", bot_user_id="123")
         event = _group_event("hello", mentions=(Mention(user_id="123"),))
         assert evaluator.should_respond(event) is True
 
     def test_mode_mention_no_match(self) -> None:
-        evaluator = create_evaluator(mode="mention", bot_qq_id="123")
+        evaluator = create_evaluator(mode="mention", bot_user_id="123")
         event = _group_event("hello")
         assert evaluator.should_respond(event) is False
 
     def test_hard_signal_bypasses(self) -> None:
         evaluator = SignalEvaluator(
             mode="auto", threshold=50,
-            hard_signals=[AtMention({"enabled": True}, bot_qq_id="123")],
+            hard_signals=[AtMention({"enabled": True}, bot_user_id="123")],
             soft_signals=[], post_signals=[],
         )
         event = _group_event("hello", mentions=(Mention(user_id="123"),))
@@ -302,7 +302,7 @@ class TestSignalEvaluator:
         """SignalEvaluator is only called from ChatPlugin.handle(), which
         skips the gate for PRIVATE scenes. We verify the evaluator itself
         doesn't do scene filtering — that's the plugin's responsibility."""
-        evaluator = create_evaluator(mode="auto", bot_qq_id="123")
+        evaluator = create_evaluator(mode="auto", bot_user_id="123")
         event = make_event("hello", scene=Scene.PRIVATE)
         # evaluator itself doesn't know about scene; it would see no signals match
         assert evaluator.should_respond(event) is False
@@ -311,26 +311,26 @@ class TestSignalEvaluator:
 # ── create_evaluator factory ──
 
 class TestCreateEvaluator:
-    def test_auto_mode_with_bot_qq_id(self) -> None:
-        evaluator = create_evaluator(mode="auto", bot_qq_id="123")
+    def test_auto_mode_with_bot_user_id(self) -> None:
+        evaluator = create_evaluator(mode="auto", bot_user_id="123")
         assert evaluator._mode == "auto"
         assert len(evaluator._hard) == 2  # AtMention + ReplyToBot
         assert len(evaluator._soft) == 3  # KeywordMatch + QuestionDetect + NoiseFilter
         assert len(evaluator._post) == 1  # RandomPass
 
-    def test_auto_mode_without_bot_qq_id(self) -> None:
-        evaluator = create_evaluator(mode="auto", bot_qq_id="")
+    def test_auto_mode_without_bot_user_id(self) -> None:
+        evaluator = create_evaluator(mode="auto", bot_user_id="")
         assert evaluator._mode == "auto"
-        assert len(evaluator._hard) == 0  # no hard signals without bot_qq_id
+        assert len(evaluator._hard) == 0  # no hard signals without bot_user_id
         assert len(evaluator._soft) == 3
         assert len(evaluator._post) == 1
 
-    def test_mention_mode_degrades_without_qq_id(self) -> None:
-        evaluator = create_evaluator(mode="mention", bot_qq_id="")
+    def test_mention_mode_degrades_without_user_id(self) -> None:
+        evaluator = create_evaluator(mode="mention", bot_user_id="")
         assert evaluator._mode == "all"  # degraded
 
     def test_unknown_mode_falls_back_to_auto(self) -> None:
-        evaluator = create_evaluator(mode="unknown", bot_qq_id="123")
+        evaluator = create_evaluator(mode="unknown", bot_user_id="123")
         assert evaluator._mode == "auto"
 
     def test_negative_threshold_clamped(self) -> None:
@@ -338,18 +338,18 @@ class TestCreateEvaluator:
         assert evaluator._threshold == 0
 
     def test_empty_triggers_disables_keyword(self) -> None:
-        evaluator = create_evaluator(mode="auto", bot_qq_id="123", signals={
+        evaluator = create_evaluator(mode="auto", bot_user_id="123", signals={
             "keyword": {"triggers": []},
         })
         soft_sigs = [s for s in evaluator._soft if s.name == "keyword"]
         assert len(soft_sigs) == 0
 
     def test_custom_threshold(self) -> None:
-        evaluator = create_evaluator(mode="auto", threshold=80, bot_qq_id="123")
+        evaluator = create_evaluator(mode="auto", threshold=80, bot_user_id="123")
         assert evaluator._threshold == 80
 
     def test_custom_signal_config(self) -> None:
-        evaluator = create_evaluator(mode="auto", bot_qq_id="123", signals={
+        evaluator = create_evaluator(mode="auto", bot_user_id="123", signals={
             "question": {"weight": 50, "patterns": ["?"]},
             "random": {"chance": 0.1},
         })
@@ -359,12 +359,12 @@ class TestCreateEvaluator:
 
     def test_random_force_pass(self) -> None:
         with patch("random.random", return_value=0.01):
-            evaluator = create_evaluator(mode="auto", threshold=999, bot_qq_id="123")
+            evaluator = create_evaluator(mode="auto", threshold=999, bot_user_id="123")
             event = _group_event("完全无关内容")
             assert evaluator.should_respond(event) is True  # random bypass
 
     def test_noise_filter_can_block(self) -> None:
-        evaluator = create_evaluator(mode="auto", threshold=50, bot_qq_id="123", signals={
+        evaluator = create_evaluator(mode="auto", threshold=50, bot_user_id="123", signals={
             "keyword": {"triggers": ["原神"]},
         })
         event = _group_event("原")  # single char, noise filter hits

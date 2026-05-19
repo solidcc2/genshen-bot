@@ -109,7 +109,7 @@ class SignalEvaluator:
 
 def create_evaluator(
     mode: str,
-    bot_qq_id: str = "",
+    bot_user_id: str = "",
     bot_name: str = "",
     threshold: int = 50,
     signals: dict[str, Any] | None = None,
@@ -117,15 +117,15 @@ def create_evaluator(
     user_signals = signals or {}
 
     if mode == "mention":
-        if not bot_qq_id:
+        if not bot_user_id:
             _logger.warning(
-                "response_mode=mention but bot_qq_id is empty, degrading to 'all'"
+                "response_mode=mention but bot_user_id is empty, degrading to 'all'"
             )
             mode = "all"
     elif mode == "auto":
-        if not bot_qq_id:
+        if not bot_user_id:
             _logger.warning(
-                "response_mode=auto but bot_qq_id is empty, "
+                "response_mode=auto but bot_user_id is empty, "
                 "at_mention and reply_to_bot signals disabled"
             )
 
@@ -138,9 +138,9 @@ def create_evaluator(
             threshold=0,
             hard_signals=[
                 AtMention(_merge_signal_config("at_mention", user_signals.get("at_mention", {})),
-                          bot_qq_id, bot_name),
+                          bot_user_id, bot_name),
                 ReplyToBot(_merge_signal_config("reply_to_bot", user_signals.get("reply_to_bot", {})),
-                           bot_qq_id),
+                           bot_user_id),
             ],
             soft_signals=[],
             post_signals=[],
@@ -163,14 +163,14 @@ def create_evaluator(
     from app.signals.soft import KeywordMatch, NoiseFilter, QuestionDetect
 
     hard_list: list[Signal] = []
-    if bot_qq_id:
+    if bot_user_id:
         hard_list.append(
             AtMention(_merge_signal_config("at_mention", user_signals.get("at_mention", {})),
-                      bot_qq_id, bot_name)
+                      bot_user_id, bot_name)
         )
         hard_list.append(
             ReplyToBot(_merge_signal_config("reply_to_bot", user_signals.get("reply_to_bot", {})),
-                       bot_qq_id)
+                       bot_user_id)
         )
 
     soft_list: list[Signal] = []

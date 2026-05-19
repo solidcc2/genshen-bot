@@ -88,15 +88,16 @@ def build_application(
     _register_core_plugins(context)
 
     # OneBot adapter (runs if enabled in config)
-    if config.onebot.enabled:
+    onebot_cfg = config.adapters["onebot"]
+    if onebot_cfg.enabled:
         from app.adapters.onebot import OneBotAdapter
 
         onebot = OneBotAdapter(
             router=context.router,
-            webhook_host=config.onebot.webhook_host,
-            webhook_port=config.onebot.webhook_port,
-            webhook_path=config.onebot.webhook_path,
-            api_base=config.onebot.api_base,
+            webhook_host=onebot_cfg.webhook_host,
+            webhook_port=onebot_cfg.webhook_port,
+            webhook_path=onebot_cfg.webhook_path,
+            api_base=onebot_cfg.api_base,
         )
         context.services.register("onebot_adapter", onebot)
 
@@ -184,7 +185,7 @@ def _register_chat_plugin(context: AppContext) -> None:
 
     signal_evaluator = create_evaluator(
         mode=llm_config.response_mode,
-        bot_qq_id=llm_config.bot_qq_id,
+        bot_user_id=llm_config.bot_qq_id,
         bot_name=llm_config.bot_name,
         threshold=llm_config.threshold,
         signals=llm_config.signals,

@@ -74,7 +74,7 @@ class AppConfig:
     http: HTTPConfig
     storage: StorageConfig
     hoyolab: HoYoLABConfig
-    onebot: OneBotConfig
+    adapters: dict[str, Any]
     llm: LLMConfig
     providers: dict[str, Any]
 
@@ -379,13 +379,15 @@ class ConfigLoader:
                 qr_timeout=hoyolab_raw.get("qr_timeout", 120.0),
                 region=hoyolab_raw.get("region", "cn"),
             ),
-            onebot=OneBotConfig(
-                enabled=bool(onebot_raw.get("enabled", False)),
-                webhook_host=str(onebot_raw.get("webhook_host", "0.0.0.0")),
-                webhook_port=int(onebot_raw.get("webhook_port", 18080)),
-                webhook_path=str(onebot_raw.get("webhook_path", "/onebot/v11/")),
-                api_base=str(onebot_raw.get("api_base", "http://127.0.0.1:3000")),
-            ),
+            adapters={
+                "onebot": OneBotConfig(
+                    enabled=bool(onebot_raw.get("enabled", False)),
+                    webhook_host=str(onebot_raw.get("webhook_host", "0.0.0.0")),
+                    webhook_port=int(onebot_raw.get("webhook_port", 18080)),
+                    webhook_path=str(onebot_raw.get("webhook_path", "/onebot/v11/")),
+                    api_base=str(onebot_raw.get("api_base", "http://127.0.0.1:3000")),
+                ),
+            },
             llm=LLMConfig(
                 enabled=bool(llm_raw.get("enabled", False)),
                 api_key=str(llm_raw.get("api_key", "")),
