@@ -22,17 +22,17 @@ _logger = logging.getLogger(__name__)
 _RESPONSE_PATTERN = re.compile(r"^\s*(是|否)\s*,\s*\+?(\d+)\s*s\s*,?\s*(.*)", re.DOTALL)
 
 
-def _parse_response(text: str) -> tuple[bool, int]:
-    """Parse LLM response into (should_reply, delay_seconds).
+def _parse_response(text: str) -> tuple[bool, int, str]:
+    """Parse LLM response into (should_reply, delay_seconds, content).
 
-    Returns (True, 0) on no-match for backward compatibility.
+    On no-match or explicit 否: returns (False, 0, "").
     """
     m = _RESPONSE_PATTERN.match(text.strip())
     if not m:
-        return True, 0
+        return False, 0, ""
     if m.group(1) == "否":
-        return False, 0
-    return True, int(m.group(2))
+        return False, 0, ""
+    return True, int(m.group(2)), m.group(3).strip()
 
 
 class ChatPlugin(BotPlugin):
@@ -67,7 +67,7 @@ class ChatPlugin(BotPlugin):
         # Gate: only GROUP/GUILD scenes check the signal evaluator
         if ctx.event.scene != Scene.PRIVATE and self._signal_evaluator is not None:
             if not self._signal_evaluator.should_respond(ctx.event):
-                return PluginResult()  # empty -> sender sends nothing
+                return PluginResult()  # empty → sender sends nothing
         chat_id = ctx.event.chat_id
         user_text = ctx.event.text.strip()
 
@@ -78,7 +78,6 @@ class ChatPlugin(BotPlugin):
         session = await self._session_manager.get_or_create(chat_id)
         cursor_msg_id = session.state.get("llm_context_since_msg")
         llm_messages = await self._context_builder.build(ctx.event, cursor_msg_id=cursor_msg_id)
-        _logger.debug("llm prompt for chat=%s: %s", chat_id, llm_messages)
         model = self._router.select_model(user_text)
 
         try:
@@ -91,8 +90,6 @@ class ChatPlugin(BotPlugin):
         except LLMError as exc:
             _logger.warning("llm generation failed for chat=%s: %s", chat_id, exc)
             return PluginResult(text=f"抱歉，我现在无法回答。{exc}")
-
-        _logger.debug("llm raw response for chat=%s: %s", chat_id, result.text)
 
         if self._tracker is not None:
             await self._tracker.record(result.usage.total_tokens)
@@ -110,8 +107,8 @@ class ChatPlugin(BotPlugin):
         )
 
         text = result.text or ""
-        reply, delay = _parse_response(text)
-        if not reply:
+        reply, delay, reply_content = _parse_response(text)
+        if not reply or not reply_content:
             return PluginResult()
 
         if delay > 0:
@@ -120,4 +117,4 @@ class ChatPlugin(BotPlugin):
                 _logger.info("response delay clamped %ds -> %ds for chat=%s", delay, clamped, chat_id)
             await asyncio.sleep(clamped)
 
-        return PluginResult(text=text)
+        return PluginResult(text=reply_content)
